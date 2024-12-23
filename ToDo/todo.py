@@ -62,5 +62,6 @@ def update_frame(frame):
 # start the cauldron animation
 update_frame(0)
 
+# hi
 # start the gui
 root.mainloop()
