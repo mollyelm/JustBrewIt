@@ -41,7 +41,7 @@ oval_image = ImageTk.PhotoImage(image)
 canvas.create_image(int(canvas_width * 0.01), int(canvas_height * 0.01), anchor="nw", image=oval_image)
 
 # cauldron (to be replaced by hand drawn image and gif frames)
-cauldron_gif = Image.open("cauldron.gif")
+cauldron_gif = Image.open("ToDo\\cauldron.gif")
 
 # store frames
 frames = []
