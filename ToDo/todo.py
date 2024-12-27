@@ -19,8 +19,7 @@ class SpellBook(QFrame):
                 border-bottom: 1px solid #341b10;
                 padding: 5px;
                 margin: 2px;
-                color: #341b10; 
-
+                color: #341b10;
             }
             QPushButton {
                 color: white;
