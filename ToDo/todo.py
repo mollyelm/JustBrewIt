@@ -3,6 +3,8 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBo
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
 from PyQt6.QtCore import Qt, QRect
 
+
+
 class SpellBook(QFrame):
     def __init__(self):
         super().__init__()
@@ -144,6 +146,20 @@ class SpellBook(QFrame):
         super().paintEvent(event)
 
 class MainWindow(QMainWindow):
+    potion_list = []
+    def potions(self):
+        self.setWindowTitle("Just Brew It")
+        self.setFixedSize(1600, 900)
+        container = QWidget()
+        self.setCentralWidget(container)
+
+        self.background_label = QLabel(container)
+        self.background_label.setPixmap(QPixmap("backgroundwall.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
+        self.background_label.setGeometry(0, 0, self.width(), self.height())
+        self.background_label.lower()
+
+        # add display and a button back 
+
     def __init__(self):
         super().__init__()
 
@@ -173,6 +189,7 @@ class MainWindow(QMainWindow):
         right_side_layout.addSpacing(30)
 
         potions_button = QPushButton("Potions")
+        
         potions_button.setStyleSheet("""
             background-color: white; 
             color: #341b10; 
@@ -187,9 +204,11 @@ class MainWindow(QMainWindow):
             border-color: #341b10;
             border-style: solid;
         """)
+        potions_button.clicked.connect(self.potions)
         potions_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
         potions_button.setFixedWidth(300)  
         button_layout.addWidget(potions_button)
+
 
         spellbooks_button = QPushButton("Spellbooks")
         spellbooks_button.setStyleSheet("""
