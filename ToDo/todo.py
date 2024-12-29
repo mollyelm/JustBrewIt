@@ -147,7 +147,7 @@ class SpellBook(QFrame):
 
 class MainWindow(QMainWindow):
     potion_list = []
-    def potions(self):
+    def open_potions_menu(self):
         self.setWindowTitle("Just Brew It")
         self.setFixedSize(1600, 900)
         container = QWidget()
@@ -157,12 +157,37 @@ class MainWindow(QMainWindow):
         self.background_label.setPixmap(QPixmap("backgroundwall.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
         self.background_label.setGeometry(0, 0, self.width(), self.height())
         self.background_label.lower()
+        main_layout = QHBoxLayout()
+        top_shelf_layout = QHBoxLayout()
+        bottom_shelf_layout = QHBoxLayout()
 
-        # add display and a button back 
+        back_button = QPushButton("Back")
 
+        back_button.setStyleSheet("""
+            background-color: white; 
+            color: #341b10; 
+            font-size: 40px; 
+            padding: 10px; 
+            padding-top: 8px;
+            border-top-width: 4px;     
+            border-bottom-width: 4px; 
+            border-left-width: 9px;    
+            border-right-width: 9px;
+            border-radius: 6px;
+            border-color: #341b10;
+            border-style: solid;
+        """)
+        back_button.clicked.connect(self.open_main_screen)
+        back_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
+        back_button.setFixedWidth(300)
+        main_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        container.setLayout(main_layout)
+        
     def __init__(self):
         super().__init__()
-
+        self.open_main_screen()
+        
+    def open_main_screen(self):
         self.setWindowTitle("Just Brew It")
         self.setFixedSize(1600, 900)
 
@@ -204,7 +229,7 @@ class MainWindow(QMainWindow):
             border-color: #341b10;
             border-style: solid;
         """)
-        potions_button.clicked.connect(self.potions)
+        potions_button.clicked.connect(self.open_potions_menu)
         potions_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
         potions_button.setFixedWidth(300)  
         button_layout.addWidget(potions_button)
@@ -238,6 +263,7 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(left_side_layout, stretch=1)
         main_layout.addLayout(right_side_layout, stretch=3)
         container.setLayout(main_layout)
+    
 
 app = QApplication(sys.argv)
 
