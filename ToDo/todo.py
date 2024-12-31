@@ -147,42 +147,7 @@ class SpellBook(QFrame):
 
 class MainWindow(QMainWindow):
     potion_list = []
-    def open_potions_menu(self):
-        self.setWindowTitle("Just Brew It")
-        self.setFixedSize(1600, 900)
-        container = QWidget()
-        self.setCentralWidget(container)
 
-        self.background_label = QLabel(container)
-        self.background_label.setPixmap(QPixmap("backgroundwall.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
-        self.background_label.setGeometry(0, 0, self.width(), self.height())
-        self.background_label.lower()
-        main_layout = QHBoxLayout()
-        top_shelf_layout = QHBoxLayout()
-        bottom_shelf_layout = QHBoxLayout()
-
-        back_button = QPushButton("Back")
-
-        back_button.setStyleSheet("""
-            background-color: white; 
-            color: #341b10; 
-            font-size: 40px; 
-            padding: 10px; 
-            padding-top: 8px;
-            border-top-width: 4px;     
-            border-bottom-width: 4px; 
-            border-left-width: 9px;    
-            border-right-width: 9px;
-            border-radius: 6px;
-            border-color: #341b10;
-            border-style: solid;
-        """)
-        back_button.clicked.connect(self.open_main_screen)
-        back_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
-        back_button.setFixedWidth(300)
-        main_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        container.setLayout(main_layout)
-        
     def __init__(self):
         super().__init__()
         self.open_main_screen()
@@ -263,6 +228,60 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(left_side_layout, stretch=1)
         main_layout.addLayout(right_side_layout, stretch=3)
         container.setLayout(main_layout)
+
+    def open_potions_menu(self):
+        self.setWindowTitle("Just Brew It")
+        self.setFixedSize(1600, 900)
+        container = QWidget()
+        self.setCentralWidget(container)
+
+        self.background_label = QLabel(container)
+        self.background_label.setPixmap(QPixmap("backgroundwall.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
+        self.background_label.setGeometry(0, 0, self.width(), self.height())
+        self.background_label.lower()
+        main_layout = QHBoxLayout()
+        top_shelf_layout = QHBoxLayout()
+        bottom_shelf_layout = QHBoxLayout()
+
+        back_button = QPushButton("Back")
+
+        back_button.setStyleSheet("""
+            background-color: white; 
+            color: #341b10; 
+            font-size: 40px; 
+            padding: 10px; 
+            padding-top: 8px;
+            border-top-width: 4px;     
+            border-bottom-width: 4px; 
+            border-left-width: 9px;    
+            border-right-width: 9px;
+            border-radius: 6px;
+            border-color: #341b10;
+            border-style: solid;
+        """)
+        back_button.clicked.connect(self.open_main_screen)
+        back_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
+        back_button.setFixedWidth(300)
+        main_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        container.setLayout(main_layout)
+    
+    def get_potion_color(arr: list[str]):
+        for todo in arr:
+            vals = [0,0,0,0,0,0]
+            for char in todo:
+                vals[0] += ord(char)**3
+                vals[1] += ord(char)**5 - ord(char)**3 + 1
+                vals[2] += ord(char)**9 - ord(char)**5 + ord(char)**3 + 1
+                vals[3] += ord(char)**3 + ord(char)*5
+                vals[4] += ord(char)**5 + ord(char)*10
+                vals[5] += ord(char)**10 + ord(char)*20
+            for i in range(6):
+                vals[i] %= 16
+        output = ""
+        for val in vals:
+            output += hex(val)[2:]
+        return output
+
     
 
 app = QApplication(sys.argv)
