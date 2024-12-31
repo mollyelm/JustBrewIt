@@ -4,9 +4,10 @@ from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QMainWin
 
 
 def onclick():
-    arr = ["hello!", "hows it hanging!", "wahoo", "yippee", "i am suffering actively"]
+    arr = ["hello!", "hows it hanging!", "wahoo", "yippee", "i am suffering actively"]  # change this to get different colors!
     result = get_potion_color(arr)
     print(result)
+    window.setStyleSheet(f"background-color: #{result}")
 
 def get_potion_color(arr: list[str]):
         for todo in arr:
