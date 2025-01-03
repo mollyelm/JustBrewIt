@@ -13,7 +13,7 @@ class TestApp(QMainWindow):
         self.setCentralWidget(self.button)
 
     def onclick(self):
-        arr = ["hello!", "hows it hanging!", "wahoo", "yippee", "i am suffering actively"]  # change this to get different colors!
+        arr = ["hello!", "wahoo", "yippee", "teehee"]  # change this to get different colors!
         hex = self.get_potion_color(arr)
         potion = self.recolor_image("potion.png", "#" + hex)
         pixmap = QPixmap.fromImage(potion)
@@ -24,8 +24,8 @@ class TestApp(QMainWindow):
         self.label.show()
 
     def get_potion_color(self, arr: list[str]):
+        vals = [0,0,0,0,0,0]
         for todo in arr:
-            vals = [0,0,0,0,0,0]
             for char in todo:
                 vals[0] += ord(char)**3
                 vals[1] += ord(char)**5 - ord(char)**3 + 1
