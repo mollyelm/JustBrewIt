@@ -13,9 +13,13 @@ class TestApp(QMainWindow):
         self.setCentralWidget(self.button)
 
     def onclick(self):
-        arr = ["hello!", "wahoo", "yippee", "teehee"]  # change this to get different colors!
+        arr = ["apple", "banana", "strawberry", "tomato"]  # change this to get different colors!
         hex = self.get_potion_color(arr)
-        potion = self.recolor_image("potion.png", "#" + hex)
+        if random.random() < 0.5:
+            potion_path = "potion.png"
+        else:
+            potion_path = "potion2.png"
+        potion = self.recolor_image(potion_path, "#" + hex)
         pixmap = QPixmap.fromImage(potion)
         self.label = QLabel()
         self.label.setPixmap(pixmap)
