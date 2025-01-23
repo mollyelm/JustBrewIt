@@ -231,7 +231,7 @@ class SpellbookPage(QMainWindow):
                 self.setCentralWidget(container)
 
                 self.background_label = QLabel(container)
-                self.background_label.setPixmap(QPixmap("background.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
+                self.background_label.setPixmap(QPixmap("bk.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
                 self.background_label.setGeometry(0, 0, self.width(), self.height())
                 self.background_label.lower() 
 
@@ -239,22 +239,16 @@ class SpellbookPage(QMainWindow):
                 left_side_layout = QVBoxLayout()
                 right_side_layout = QVBoxLayout()
 
-                self.avatar_label = QLabel()
-                self.avatar_pixmap = QPixmap("avatar.png")
-                self.avatar_pixmap = self.avatar_pixmap.scaledToWidth(500)
-                self.avatar_label.setPixmap(self.avatar_pixmap)
-                self.avatar_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                left_side_layout.addWidget(self.avatar_label, alignment=Qt.AlignmentFlag.AlignCenter)
-
+                
                 button_layout = QHBoxLayout()
-                right_side_layout.addSpacing(30)
+                # right_side_layout.addSpacing(30)
 
                 potions_button = QPushButton("Potions")
                 potions_button.setStyleSheet("""
                     background-color: #f7e9e2; 
                     color: #341b10; 
-                    font-size: 40px; 
-                    padding: 10px; 
+                    font-size: 24px; 
+                    padding: 5px; 
                     padding-top: 8px;
                     border-top-width: 4px;     
                     border-bottom-width: 4px; 
@@ -268,15 +262,15 @@ class SpellbookPage(QMainWindow):
                 potions_button.clicked.connect(self.open_potions_menu)
 
                 potions_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
-                potions_button.setFixedWidth(300)  
+                potions_button.setFixedWidth(200)  
                 button_layout.addWidget(potions_button)
 
                 spellbooks_button = QPushButton("Spellbooks")
                 spellbooks_button.setStyleSheet("""
                     background-color: #f7e9e2; 
                     color: #341b10; 
-                    font-size: 40px; 
-                    padding: 10px; 
+                    font-size: 24px; 
+                    padding: 5px; 
                     padding-top: 8px;
                     border-top-width: 4px;     
                     border-bottom-width: 4px; 
@@ -286,14 +280,16 @@ class SpellbookPage(QMainWindow):
                     border-color: #341b10;
                     border-style: solid;
                 """)
+                
                 spellbooks_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
-                spellbooks_button.setFixedWidth(300) 
+                spellbooks_button.setFixedWidth(200) 
                 button_layout.addWidget(spellbooks_button)
 
-                right_side_layout.addLayout(button_layout)
-                right_side_layout.addSpacing(30)
-
+                right_side_layout.setContentsMargins(0, 80, 135, 0) 
                 right_side_layout.addWidget(spellbook_instance)
+                
+                right_side_layout.addSpacing(100)
+                right_side_layout.addLayout(button_layout)
 
                 main_layout.addLayout(left_side_layout, stretch=1)
                 main_layout.addLayout(right_side_layout, stretch=3)
@@ -337,12 +333,23 @@ class SpellbookPage(QMainWindow):
             border-color: #341b10;
             border-style: solid;
         """)
-        back_button.clicked.connect(self.open_main_screen)
+        back_button.clicked.connect(self.return_to_spellbook_selection)
         back_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
         back_button.setFixedWidth(300)
         main_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         container.setLayout(main_layout)
 
+    def return_to_spellbook_selection(self):
+        # clear the current layout
+        for i in reversed(range(self.layout().count())): 
+            widget = self.layout().itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+
+        self.init_ui()
+        self.load_spellbooks()
+        self.setWindowTitle(f"Just Brew It - {self.username}'s Spellbooks")
+    
     # :)
     def get_potion_color(arr: list[str]):
         for todo in arr:
