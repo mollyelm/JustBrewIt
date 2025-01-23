@@ -1,30 +1,22 @@
 import sys
-# import mysql.connector
-from PyQt6.QtWidgets import QApplication, QMainWindow, QDialog, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QFrame, QWidget, QSizePolicy, QLineEdit, QCheckBox
-from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
-from PyQt6.QtCore import Qt, QRect
+import mysql.connector
+from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QFrame, QWidget, QLineEdit, QCheckBox
+from PyQt6.QtCore import Qt, QTimer
 
 
 class SpellBook(QFrame):
-    def __init__(self, host="localhost", user="spellbook_remote", password="your_secure_password"):        
+    def __init__(self, username=None, spellbook_id=None, title=None, conn=None):
         super().__init__()
         
-        self.user_id = 1
+        # gives spellbook variables for later use
+        self.username = username
+        self.spellbook_id = spellbook_id
+        self.title = title
+        self.conn = conn
+        self.cursor = self.conn.cursor(dictionary=True)
 
-        # try:
-        #     self.conn = mysql.connector.connect(
-        #         host = host,
-        #         user = user,
-        #         password = password,
-        #         database ="spellbook_db"
-        #     )
-        #     self.cursor = self.conn.cursor(dictionary=True)
-        
-        # except mysql.connector.Error as err:
-        #     print(f"Error connecting to MySQL: {err}")
-        #     sys.exit(1)
-            
-
+        # sets up style for building the page 
+        # i honestly dont know if this is needed anymore but i dont want to break things
         self.setStyleSheet("""
             QFrame {
                 background-color: #f7e9e2;
@@ -66,13 +58,19 @@ class SpellBook(QFrame):
             }
         """)
         
+        # size of spellbook
         self.setFixedSize(1000, 700)
         self.spell_entries = []
         self.pages = [[], []]
         
-        self.init_spellbook()
-        # self.load_saved_entries()
+        self.update_timer = QTimer()
+        self.update_timer.setSingleShot(True)
+        self.update_timer.timeout.connect(self.update_database)
+        self.current_entry = None
 
+        # sets up spellbook itself
+        self.init_spellbook()
+        self.load_saved_entries()
 
     def init_spellbook(self):
         main_layout = QHBoxLayout(self)
@@ -80,6 +78,8 @@ class SpellBook(QFrame):
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.current_page = 0
 
+        # there are 2 pages per spellbook (for now)
+        # each with 18 entry slots
         for page_index in range(2):
             page_widget = QWidget()
             page_layout = QVBoxLayout(page_widget)
@@ -87,7 +87,7 @@ class SpellBook(QFrame):
             
             if page_index == 0:
                 title_field = QLineEdit()
-                title_field.setPlaceholderText("Enter Spellbook Title")
+                title_field.setText(self.title)
                 title_field.setStyleSheet("""
                     QLineEdit {
                         font-size: 24px;
@@ -100,15 +100,15 @@ class SpellBook(QFrame):
                     }
                 """)
                 page_layout.addWidget(title_field)
-                # margins are slightly off
-                title_field.setTextMargins(0, 10, 0, 0)
-
+                title_field.setTextMargins(10, 10, 30, 10)
+            
+            # makes the 18 entry slots
             for i in range(18):
                 entry_widget = QWidget()
                 entry_layout = QHBoxLayout(entry_widget)
-                # margins are slightly off 
-                entry_layout.setContentsMargins(4, 0, 0, 4)
+                entry_layout.setContentsMargins(5, 1, 5, 5)
                 
+                # click for next spell button
                 plus_label = QLabel("+")
                 plus_label.setFixedWidth(25)
                 plus_label.setStyleSheet("""
@@ -122,6 +122,7 @@ class SpellBook(QFrame):
                 """)
                 plus_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 
+                # sets up check box
                 checkbox = QCheckBox()
                 checkbox.stateChanged.connect(self.handle_checkbox_changed)
                 checkbox.setFixedWidth(25)
@@ -135,25 +136,30 @@ class SpellBook(QFrame):
                         background-color: #341b10;
                     }
                 """)
-                checkbox.hide()  
+                checkbox.hide()
                 
                 spell_entry = QLineEdit()
-                spell_entry.setPlaceholderText("")
+                spell_entry.setPlaceholderText("") 
                 spell_entry.raise_()
-
+    
+                # sets up removal button
                 remove_button = QPushButton("×")
                 remove_button.setFixedWidth(25)
                 remove_button.setProperty("class", "remove-button")
                 remove_button.hide()
                 remove_button.clicked.connect(lambda _, entry=spell_entry: self.remove_spell(entry))
-
+                
+                # sets up the next box that can be typed in
                 spell_entry.plus_label = plus_label
                 spell_entry.checkbox = checkbox
                 spell_entry.remove_button = remove_button
                 spell_entry.entry_index = len(self.spell_entries)
-
+                
+                # connects changing the text with editing the db spell_entries entry
+                # as well as multiline comment handling
                 spell_entry.textChanged.connect(self.handle_text_changed)
                 
+                # adds all to frame
                 entry_layout.addWidget(plus_label)
                 entry_layout.addWidget(checkbox)
                 entry_layout.addWidget(spell_entry, stretch=1)
@@ -163,11 +169,12 @@ class SpellBook(QFrame):
                 self.pages[page_index].append((spell_entry, checkbox))
                 self.spell_entries.append(spell_entry)
             
+            # i added this a long time ago and idk if its still needed
             if page_index == 1:
                 add_spell_button = QPushButton("Click to insert a spell")
-                page_layout.addWidget(add_spell_button)
                 add_spell_button.hide()
-                            
+                page_layout.addWidget(add_spell_button)
+            
             page_layout.addStretch()
             
             main_layout.addWidget(page_widget)
@@ -176,131 +183,102 @@ class SpellBook(QFrame):
                 separator.setFrameShape(QFrame.Shape.VLine)
                 separator.setStyleSheet("background-color: #341b10;")
                 main_layout.addWidget(separator)
-        
-            # these are supposed to be arrows but the unicode doesnt show on mac
-            self.next_page_button = QPushButton("🠆", self)
-            self.prev_page_button = QPushButton("🠄", self)
 
-            arrow_style = """
-                QPushButton {
-                    position: absolute;
-                    color: #341b10;
-                    background-color: transparent;
-                    border: none;
-                    font-size: 45px;
-                    font-weight: 900;
-                }
-                QPushButton:hover {
-                    color: #d4533c;
-                }
-            """
-            
-            self.next_page_button.setStyleSheet(arrow_style)
-            self.prev_page_button.setStyleSheet(arrow_style)
-            self.next_page_button.setGeometry(self.width() - 60, self.height() - 60, 60, 60)
-            self.prev_page_button.setGeometry(0, self.height() - 60, 60, 60)
-            
-            self.next_page_button.raise_()
-            self.prev_page_button.raise_()
-            self.next_page_button.hide()
-            self.prev_page_button.hide()
-            
-            self.next_page_button.clicked.connect(self.next_page)
-            self.prev_page_button.clicked.connect(self.prev_page)
-
-            self.update_entry_states()
-
-    def next_page(self):
-        self.current_page = 1
-        # hide og page
-        for i in range(36):
-            self.spell_entries[i].parent().hide()
-
-        # show next 
-        for i in range(36, 72):
-            entry = self.spell_entries[i]
-            if not entry.text() and i == 36:
-                entry.plus_label.show()
-                entry.setPlaceholderText("Click to add a new spell...")
-            entry.parent().show()
-        self.check_arrow_visibility()
-
-    def prev_page(self):
-        self.current_page = 0
-        # show og page 
-        for i in range(36):
-            self.spell_entries[i].parent().show()
-        # hide prev page
-        for i in range(36, 72):
-            self.spell_entries[i].parent().hide()
-        self.check_arrow_visibility()
-        
-    def check_arrow_visibility(self):
-        self.prev_page_button.setVisible(self.current_page == 1)
-        last_entry = self.spell_entries[35]
-        self.next_page_button.setVisible(
-            (self.current_page == 0 and bool(last_entry.text()))
-        )
-
-    # for mysql
+        self.update_entry_states()
+    
+    # for mysql, loads user's past entries for the spellbook if there are any
     def load_saved_entries(self):
-        # try:
-        #     self.cursor.execute('''
-        #         SELECT * FROM spell_entries 
-        #         WHERE user_id = %s 
-        #         ORDER BY page_number, entry_index
-        #     ''', (self.user_id,))
+        try:
+            self.cursor.execute('''
+                SELECT * FROM spell_entries 
+                WHERE spellbook_id = %s 
+                ORDER BY entry_index
+            ''', (self.spellbook_id,))
             
-        #     saved_entries = self.cursor.fetchall()
+            saved_entries = self.cursor.fetchall()
+         
+            # places entries in spellbook   
+            max_entry_index = max([entry['entry_index'] for entry in saved_entries], default=-1)
+            while len(self.spell_entries) <= max_entry_index:
+                page_layout = self.layout().itemAt(0).widget().layout()
+                
+                entry_widget = QWidget()
+                entry_layout = QHBoxLayout(entry_widget)
+                entry_layout.setContentsMargins(4, 0, 0, 4)
+                
+                page_layout.insertWidget(page_layout.count() - 1, entry_widget)
+                self.spell_entries.append(spell_entry)
             
-        #     for entry_data in saved_entries:
-        #         page_number = entry_data['page_number']
-        #         entry_index = entry_data['entry_index']
-        #         text = entry_data['text']
-        #         is_checked = entry_data['is_checked']
+            current_parent = None
+            for entry_data in saved_entries:
+                entry_index = entry_data['entry_index']
+                text = entry_data['text']
+                is_checked = entry_data['is_checked']
+                parent_index = entry_data['parent_index']
                 
-        #         spell_entry = self.spell_entries[entry_index]
-        #         spell_entry.setText(text)
-        #         spell_entry.checkbox.setChecked(is_checked)
-                
-        #     self.update_entry_states()
-        #     self.check_arrow_visibility()
-                
-        # except mysql.connector.Error as err:
-        #     print(f"Error loading saved entries: {err}")
-        pass
-
-    # for mysql
-    def handle_checkbox_changed(self):
-        # checkbox = self.sender()
-        # spell_entry = None
+                if entry_index < len(self.spell_entries):
+                    spell_entry = self.spell_entries[entry_index]
+                    spell_entry.setText(text)
+                    spell_entry.checkbox.setChecked(is_checked)
+                    
+                    if parent_index == entry_index:
+                        current_parent = spell_entry
+                        spell_entry.remove_button.show()
+                        spell_entry.checkbox.show()
+                        spell_entry.plus_label.hide()
+                        if hasattr(spell_entry, 'parent_entry'):
+                            delattr(spell_entry, 'parent_entry')
+                    else:
+                        spell_entry.parent_entry = current_parent
+                        spell_entry.remove_button.hide()
+                        spell_entry.checkbox.hide()
+                        spell_entry.plus_label.hide()
+            
+            # ensures the last entry of each multiline entry shows the remove button
+            for i, entry in enumerate(self.spell_entries):
+                if entry.text() and hasattr(entry, 'parent_entry'):
+                    next_entry = self.spell_entries[i+1] if i+1 < len(self.spell_entries) else None
+                    if next_entry is None or not hasattr(next_entry, 'parent_entry') or next_entry.text() == "":
+                        entry.remove_button.show()
+                        entry.parent_entry.remove_button.hide()
+            
+            self.update_entry_states()
+                                
+        except mysql.connector.Error as err:
+            print(f"Error loading saved entries: {err}")
         
-        # # find corresponding spell
-        # for entry in self.spell_entries:
-        #     if entry.checkbox == checkbox:
-        #         spell_entry = entry
-        #         break
-        # 
-        # if spell_entry:
-        #     try:
-        #         self.cursor.execute('''
-        #             UPDATE spell_entries 
-        #             SET is_checked = %s 
-        #             WHERE user_id = %s AND page_number = %s AND entry_index = %s
-        #         ''', (
-        #             checkbox.isChecked(),
-        #             self.user_id,
-        #             # determine page number
-        #             0 if spell_entry.entry_index < 36 else 1,  
-        #             spell_entry.entry_index
-        #         ))
-        #         self.conn.commit()
+    # for mysql, ensures checkbox's state is maintained
+    def handle_checkbox_changed(self):
+        checkbox = self.sender()
+        spell_entry = None
+        
+        # find corresponding spell
+        for entry in self.spell_entries:
+            if entry.checkbox == checkbox:
+                spell_entry = entry
+                break
+        
+        # if spell entry exists, update in the db
+        if spell_entry:
+            try:
+                self.cursor.execute('''
+                    UPDATE spell_entries 
+                    SET is_checked = %s 
+                    WHERE spellbook_id = %s AND page_number = %s AND entry_index = %s
+                ''', (
+                    checkbox.isChecked(),
+                    self.spellbook_id,
+                    # determine page number
+                    0 if spell_entry.entry_index < 36 else 1,  
+                    spell_entry.entry_index
+                ))
+                self.conn.commit()
                 
-        #     except mysql.connector.Error as err:
-        #         print(f"Error updating checkbox state: {err}")
-        #         self.conn.rollback()
-        pass
+            except mysql.connector.Error as err:
+                print(f"Error updating checkbox state: {err}")
+                self.conn.rollback()
 
+    # handles multiline entries and adding entries to db
     def handle_text_changed(self, text):
         spell_entry = self.sender()
         plus_label = spell_entry.plus_label
@@ -347,6 +325,8 @@ class SpellBook(QFrame):
                     next_entry.setCursorPosition(len(to_move))
                     return
             
+        # set remove button on last line of entry
+        # set check box on first line of entry 
         if text:
             plus_label.hide()
             if hasattr(spell_entry, 'parent_entry'):
@@ -370,132 +350,169 @@ class SpellBook(QFrame):
             checkbox.setChecked(False)
             remove_button.hide()
         
-        # try:
-            # page_number = 0
-            # for page_side in range(len(self.pages)):
-            #     for entry_index, (entry, checkbox) in enumerate(self.pages[page_side]):
-            #         if entry == spell_entry:
-            #             page_number = page_side
-            #             break
-            
-            # if text:
-            #     self.cursor.execute('''
-            #         INSERT INTO spell_entries 
-            #         (user_id, page_number, entry_index, text, is_checked) 
-            #         VALUES (%s, %s, %s, %s, %s)
-            #         ON DUPLICATE KEY UPDATE 
-            #         text = %s, is_checked = %s
-            #     ''', (
-            #         self.user_id, 
-            #         page_number, 
-            #         spell_entry.entry_index, 
-            #         text, 
-            #         spell_entry.checkbox.isChecked(),
-            #         text,
-            #         spell_entry.checkbox.isChecked()
-            #     ))
-            #     self.conn.commit()
-        
-        # except mysql.connector.Error as err:
-        #     print(f"error storing entry: {err}")
-        #     self.conn.rollback()
-        
-        self.check_arrow_visibility()
+        # set the current entry and start/restart the timer
+        self.current_entry = spell_entry
+        self.update_timer.start(1000)  
+
         self.update_entry_states()
 
+    # bro this thing made me want to quit
+    # it has a timer set to add entries to the db
+    # dels old versions of the entry
+    def update_database(self):
+        if not self.current_entry:
+            return
+
+        spell_entry = self.current_entry
+        text = spell_entry.text()
+        page_number = 0 if spell_entry.entry_index < 36 else 1
+
+        try:
+            if hasattr(spell_entry, 'parent_entry'):
+                parent_index = spell_entry.parent_entry.entry_index
+            else:
+                parent_index = spell_entry.entry_index 
+
+            # first, deletes any existing entry
+            self.cursor.execute('''
+                DELETE FROM spell_entries 
+                WHERE spellbook_id = %s AND entry_index = %s
+            ''', (self.spellbook_id, spell_entry.entry_index))
+
+            # inserts the new/updated entry
+            self.cursor.execute('''
+                INSERT INTO spell_entries 
+                (spellbook_id, page_number, entry_index, parent_index, is_checked, text) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (
+                self.spellbook_id, 
+                page_number, 
+                spell_entry.entry_index,
+                parent_index, 
+                spell_entry.checkbox.isChecked(),
+                text
+            ))
+            self.conn.commit()
+        
+        except mysql.connector.Error as err:
+            print(f"Error updating database: {err}")
+            self.conn.rollback()
+
+        self.current_entry = None
+    
+    # removes spell from gui and db
     def remove_spell(self, entry_to_remove):
-        if hasattr(entry_to_remove, 'parent_entry'):
-            first_entry = entry_to_remove.parent_entry
+        # groups multilines together
+        try:
+            entry_index = entry_to_remove.entry_index
 
-            while hasattr(first_entry, 'parent_entry'):
-                first_entry = first_entry.parent_entry
+            if hasattr(entry_to_remove, 'parent_entry'):
+                entry_index = entry_to_remove.parent_entry.entry_index
 
-        else:
-            first_entry = entry_to_remove
-        
-        linked_entries = [first_entry]
-        current_entry = first_entry
-        current_index = first_entry.entry_index
-        
-        while current_index + 1 < len(self.spell_entries):
-            next_entry = self.spell_entries[current_index + 1]
-            if hasattr(next_entry, 'parent_entry') and next_entry.parent_entry == first_entry:
-                linked_entries.append(next_entry)
-                current_index += 1
-            else:
-                break
-        
-        num_to_remove = len(linked_entries)
-        remove_start = first_entry.entry_index
-        
-        for i in range(remove_start, len(self.spell_entries) - num_to_remove):
-            current_entry = self.spell_entries[i]
-            next_entry = self.spell_entries[i + num_to_remove]
-            
-            current_entry.setText(next_entry.text())
-            current_entry.checkbox.setChecked(next_entry.checkbox.isChecked())
-            current_entry.checkbox.hide()
-            current_entry.remove_button.hide()
-            
-            if hasattr(next_entry, 'parent_entry'):
-                original_parent = next_entry.parent_entry
+            # deletes from db
+            try:
+                self.cursor.execute('''
+                    DELETE FROM spell_entries 
+                    WHERE spellbook_id = %s AND (entry_index = %s OR parent_index = %s)
+                ''', (self.spellbook_id, entry_index, entry_index))
 
-                while hasattr(original_parent, 'parent_entry'):
-                    original_parent = original_parent.parent_entry
-                    
-                new_parent_index = original_parent.entry_index - num_to_remove
-                if new_parent_index >= 0:
-                    current_entry.parent_entry = self.spell_entries[new_parent_index]
-                    next_next_index = i + num_to_remove + 1
-                    is_last_in_group = (next_next_index >= len(self.spell_entries) or 
-                                      not hasattr(self.spell_entries[next_next_index], 'parent_entry') or
-                                      self.spell_entries[next_next_index].parent_entry != next_entry.parent_entry)
-                    
-                    if is_last_in_group:
-                        current_entry.remove_button.show()
-            else:
-                if hasattr(current_entry, 'parent_entry'):
-                    delattr(current_entry, 'parent_entry')
-                current_entry.checkbox.show()
-        
-        for i in range(num_to_remove):
-            entry = self.spell_entries[-(i+1)]
-            entry.setText("")
-            entry.checkbox.setChecked(False)
-            entry.checkbox.hide()
-            entry.remove_button.hide()
-            if hasattr(entry, 'parent_entry'):
-                delattr(entry, 'parent_entry')
-        
-            entry_index = remove_start
-            while entry_index < len(self.spell_entries):
-                entry = self.spell_entries[entry_index]
+                num_removed = self.cursor.rowcount
+
+                self.cursor.execute('''
+                    UPDATE spell_entries
+                    SET entry_index = entry_index - %s,
+                        parent_index = CASE 
+                            WHEN parent_index > %s THEN parent_index - %s 
+                            ELSE parent_index 
+                        END
+                    WHERE spellbook_id = %s AND entry_index > %s
+                ''', (num_removed, entry_index, num_removed, self.spellbook_id, entry_index))
+
+                self.conn.commit()
+            except mysql.connector.Error as err:
+                print(f"Error removing entries from database: {err}")
+                self.conn.rollback()
+                return
+
+            entries_to_remove = [entry for entry in self.spell_entries if 
+                                entry.entry_index == entry_index or 
+                                (hasattr(entry, 'parent_entry') and entry.parent_entry.entry_index == entry_index)]
+
+            num_to_remove = len(entries_to_remove)
+
+            # adjusting gui
+            for i in range(entry_index, len(self.spell_entries) - num_to_remove):
+                current_entry = self.spell_entries[i]
+                next_entry = self.spell_entries[i + num_to_remove]
                 
-                entry.checkbox.hide()
-                entry.remove_button.hide()
+                current_entry.setText(next_entry.text())
+                current_entry.checkbox.setChecked(next_entry.checkbox.isChecked())
                 
-                if entry.text():
-                    if not hasattr(entry, 'parent_entry'):
-                        entry.checkbox.show()
-                        next_index = entry_index + 1
-
-                        if (next_index >= len(self.spell_entries) or 
-                            not hasattr(self.spell_entries[next_index], 'parent_entry') or
-                            self.spell_entries[next_index].parent_entry != entry):
-                            entry.remove_button.show()
+                if hasattr(next_entry, 'parent_entry'):
+                    if next_entry.parent_entry.entry_index > entry_index:
+                        current_entry.parent_entry = self.spell_entries[next_entry.parent_entry.entry_index - num_to_remove]
                     else:
-                        next_index = entry_index + 1
-                        is_last_in_group = (next_index >= len(self.spell_entries) or 
-                                        not hasattr(self.spell_entries[next_index], 'parent_entry') or
-                                        self.spell_entries[next_index].parent_entry != entry.parent_entry)
-                        if is_last_in_group:
-                            entry.remove_button.show()
-                
-                entry_index += 1
+                        current_entry.parent_entry = next_entry.parent_entry
+                elif hasattr(current_entry, 'parent_entry'):
+                    delattr(current_entry, 'parent_entry')
 
-            self.check_arrow_visibility()
+            for i in range(len(self.spell_entries) - num_to_remove, len(self.spell_entries)):
+                entry = self.spell_entries[i]
+                entry.setText("")
+                entry.checkbox.setChecked(False)
+                if hasattr(entry, 'parent_entry'):
+                    delattr(entry, 'parent_entry')
+
+            current_parent = None
+            for i, entry in enumerate(self.spell_entries):
+                entry.entry_index = i
+                if not entry.text():
+                    current_parent = None
+                    entry.remove_button.hide()
+                    entry.checkbox.hide()
+                    entry.plus_label.show()
+                elif not hasattr(entry, 'parent_entry') or (current_parent is None):
+                    current_parent = entry
+                    entry.remove_button.show()
+                    entry.checkbox.show()
+                    entry.plus_label.hide()
+                    if hasattr(entry, 'parent_entry'):
+                        delattr(entry, 'parent_entry')
+                else:
+                    entry.parent_entry = current_parent
+                    entry.remove_button.hide()
+                    entry.checkbox.hide()
+                    entry.plus_label.hide()
+
+                # adjusting indices in db
+                try:
+                    if entry.text():
+                        parent_index = current_parent.entry_index if current_parent and current_parent != entry else entry.entry_index
+                        self.cursor.execute('''
+                            UPDATE spell_entries
+                            SET parent_index = %s
+                            WHERE spellbook_id = %s AND entry_index = %s
+                        ''', (parent_index, self.spellbook_id, entry.entry_index))
+                        self.conn.commit()
+                except mysql.connector.Error as err:
+                    print(f"Error updating parent index in database: {err}")
+                    self.conn.rollback()
+
+                # dictates remove button showing
+                if current_parent:
+                    next_entry = self.spell_entries[i+1] if i+1 < len(self.spell_entries) else None
+                    if next_entry is None or not hasattr(next_entry, 'parent_entry') or next_entry.text() == "":
+                        entry.remove_button.show()
+                        if current_parent != entry:
+                            current_parent.remove_button.hide()
+                    else:
+                        entry.remove_button.hide()
+
             self.update_entry_states()
 
+        except Exception as e:
+            print(f"An error occurred in remove_spell: {e}")
+            
     def is_next_available_entry(self, entry):
         index = entry.entry_index
         if index == 0:
@@ -503,6 +520,7 @@ class SpellBook(QFrame):
         prev_entry = self.spell_entries[index - 1]
         return bool(prev_entry.text())
 
+    # updates click to add spell line 
     def update_entry_states(self):
         found_empty = False
         for i, entry in enumerate(self.spell_entries):
@@ -527,197 +545,3 @@ class SpellBook(QFrame):
             else:
                 entry.plus_label.hide()
                 entry.setPlaceholderText("")
-
-    # def insert_spell(self):
-    #     for spell_entry in self.spell_entries:
-    #         if not spell_entry.text():
-    #             spell_entry.setFocus()
-    #             return
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-
-class MainWindow(QMainWindow):
-    potion_list = []
-
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Just Brew It")
-        self.setFixedSize(1600, 900)
-        
-        self.show_connection_dialog()
-
-        # dont think its needed anymore 
-        # self.open_main_screen()
-        
-    def show_connection_dialog(self):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Connect to Database")
-        layout = QVBoxLayout()
-        
-        host_label = QLabel("Host IP:")
-        self.host_input = QLineEdit("localhost")
-        user_label = QLabel("Username:")
-        self.user_input = QLineEdit("spellbook_remote")
-        pass_label = QLabel("Password:")
-        self.pass_input = QLineEdit()
-        self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
-        
-        layout.addWidget(host_label)
-        layout.addWidget(self.host_input)
-        layout.addWidget(user_label)
-        layout.addWidget(self.user_input)
-        layout.addWidget(pass_label)
-        layout.addWidget(self.pass_input)
-        
-        connect_btn = QPushButton("Connect")
-        connect_btn.clicked.connect(lambda: self.connect_to_db(dialog))
-        layout.addWidget(connect_btn)
-        
-        dialog.setLayout(layout)
-        dialog.exec()
-
-    def connect_to_db(self, dialog):
-        host = self.host_input.text()
-        user = self.user_input.text()
-        password = self.pass_input.text()
-        
-        container = QWidget()
-        self.setCentralWidget(container)
-
-        self.background_label = QLabel(container)
-        self.background_label.setPixmap(QPixmap("background.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
-        self.background_label.setGeometry(0, 0, self.width(), self.height())
-        self.background_label.lower() 
-
-        main_layout = QHBoxLayout()
-        left_side_layout = QVBoxLayout()
-        right_side_layout = QVBoxLayout()
-
-        self.avatar_label = QLabel()
-        self.avatar_pixmap = QPixmap("avatar.png")
-        self.avatar_pixmap = self.avatar_pixmap.scaledToWidth(500)
-        self.avatar_label.setPixmap(self.avatar_pixmap)
-        self.avatar_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        left_side_layout.addWidget(self.avatar_label, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        button_layout = QHBoxLayout()
-        right_side_layout.addSpacing(30)
-
-        potions_button = QPushButton("Potions")
-        potions_button.setStyleSheet("""
-            background-color: #f7e9e2; 
-            color: #341b10; 
-            font-size: 40px; 
-            padding: 10px; 
-            padding-top: 8px;
-            border-top-width: 4px;     
-            border-bottom-width: 4px; 
-            border-left-width: 9px;    
-            border-right-width: 9px;
-            border-radius: 6px;
-            border-color: #341b10;
-            border-style: solid;
-        """)
-
-        potions_button.clicked.connect(self.open_potions_menu)
-
-        potions_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
-        potions_button.setFixedWidth(300)  
-        button_layout.addWidget(potions_button)
-
-        spellbooks_button = QPushButton("Spellbooks")
-        spellbooks_button.setStyleSheet("""
-            background-color: #f7e9e2; 
-            color: #341b10; 
-            font-size: 40px; 
-            padding: 10px; 
-            padding-top: 8px;
-            border-top-width: 4px;     
-            border-bottom-width: 4px; 
-            border-left-width: 9px;    
-            border-right-width: 9px;
-            border-radius: 6px;
-            border-color: #341b10;
-            border-style: solid;
-        """)
-        spellbooks_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
-        spellbooks_button.setFixedWidth(300) 
-        button_layout.addWidget(spellbooks_button)
-
-        right_side_layout.addLayout(button_layout)
-        right_side_layout.addSpacing(30)
-
-        spellbook = SpellBook(host=host, user=user, password=password)
-        right_side_layout.addWidget(spellbook)
-
-        main_layout.addLayout(left_side_layout, stretch=1)
-        main_layout.addLayout(right_side_layout, stretch=3)
-        container.setLayout(main_layout)
-
-        dialog.accept()
-        
-    # mysql close db
-    # def __del__(self):
-    #     if hasattr(self, 'conn'):
-    #         self.conn.close()
-
-    def open_potions_menu(self):
-        self.setWindowTitle("Just Brew It")
-        self.setFixedSize(1600, 900)
-        container = QWidget()
-        self.setCentralWidget(container)
-
-        self.background_label = QLabel(container)
-        self.background_label.setPixmap(QPixmap("backgroundwall.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
-        self.background_label.setGeometry(0, 0, self.width(), self.height())
-        self.background_label.lower()
-        main_layout = QHBoxLayout()
-        top_shelf_layout = QHBoxLayout()
-        bottom_shelf_layout = QHBoxLayout()
-
-        back_button = QPushButton("Back")
-
-        back_button.setStyleSheet("""
-            background-color: white; 
-            color: #341b10; 
-            font-size: 40px; 
-            padding: 10px; 
-            padding-top: 8px;
-            border-top-width: 4px;     
-            border-bottom-width: 4px; 
-            border-left-width: 9px;    
-            border-right-width: 9px;
-            border-radius: 6px;
-            border-color: #341b10;
-            border-style: solid;
-        """)
-        back_button.clicked.connect(self.open_main_screen)
-        back_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
-        back_button.setFixedWidth(300)
-        main_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        container.setLayout(main_layout)
-    
-    def get_potion_color(arr: list[str]):
-        for todo in arr:
-            vals = [0,0,0,0,0,0]
-            for char in todo:
-                vals[0] += ord(char)**3
-                vals[1] += ord(char)**5 - ord(char)**3 + 1
-                vals[2] += ord(char)**9 - ord(char)**5 + ord(char)**3 + 1
-                vals[3] += ord(char)**3 + ord(char)*5
-                vals[4] += ord(char)**5 + ord(char)*10
-                vals[5] += ord(char)**10 + ord(char)*20
-            for i in range(6):
-                vals[i] %= 16
-        output = ""
-        for val in vals:
-            output += hex(val)[2:]
-        return output
-
-app = QApplication(sys.argv)
-
-window = MainWindow()
-window.show()
-
-app.exec()
