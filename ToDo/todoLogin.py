@@ -210,20 +210,6 @@ class SpellbookPage(QMainWindow):
                 if 0 <= book_index-1 < len(self.book_buttons):
                     button = self.book_buttons[book_index-1]
                     button.setText(spellbook['title'])
-                    button.setStyleSheet("""
-                        QPushButton { 
-                                border: none; 
-                                background: transparent;
-                                color: white;
-                                font-size: 24px;
-                                text-align: left;
-                                padding: 20px 0 0 20px;
-                                margin: 0;
-                            }
-                            QPushButton:pressed {
-                                padding: 20px 0 0 20px;
-                            }
-                    """)
 
                     button.clicked.disconnect()
                     button.clicked.connect(lambda _, t=spellbook['title']: self.open_spellbook(t))
@@ -427,13 +413,17 @@ class ImageButton(QPushButton):
         self.setIcon(QIcon(self.pixmap))
         self.setIconSize(self.pixmap.size())
         self.setFixedSize(self.pixmap.size())
-        self.setStyleSheet("QPushButton { border: none; background: transparent; }")
         self.index = index
         self.handler = handler
         self.clicked.connect(self.handler)
+        self.text_label = QLabel(self)
+        self.text_label.setStyleSheet("color: white; text-align: center;  font-size: 65px;")
+        # self.text_label.move((self.pixmap.width() // 2) - self.text_label.width(), (self.pixmap.height() // 3) - ( self.text_label.height() - 10))
 
+    def setText(self, text):
+        self.text_label.setText(text)
+        
     def hitButton(self, point):
-        # Allow clicks only on opaque (non-transparent) areas of the image
         color = self.pixmap.toImage().pixelColor(point)
         return color.alpha() > 0
 
