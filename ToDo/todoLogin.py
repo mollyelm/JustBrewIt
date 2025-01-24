@@ -2,9 +2,9 @@ import sys
 from todo import SpellBook
 import mysql.connector
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QPushButton, QLineEdit, QLabel, QSizePolicy, QMessageBox, QInputDialog)
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import Qt
+                             QPushButton, QLineEdit, QLabel, QSizePolicy, QMessageBox, QInputDialog, QStackedLayout, QStackedWidget)
+from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtCore import Qt, QPoint
 
 # main window creation
 class LoginWindow(QMainWindow):
@@ -119,7 +119,8 @@ class SpellbookPage(QMainWindow):
         self.init_ui()
         
         if not self.is_new_user:
-            self.load_spellbooks()
+            # self.load_spellbooks()
+            pass
         else:
             self.show_welcome_message()
 
@@ -131,74 +132,126 @@ class SpellbookPage(QMainWindow):
     
     # builds shelf window
     def init_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
+        container = QWidget()
+        self.setCentralWidget(container)
 
-        # i really didnt spend long on this, i just wanted to add the most basic layout
-        left_widget = QWidget()
-        left_layout = QVBoxLayout(left_widget)
-        self.avatar_label = QLabel()
-        avatar_pixmap = QPixmap("avatar.png")
-        avatar_pixmap = avatar_pixmap.scaledToWidth(500)
-        self.avatar_label.setPixmap(avatar_pixmap)
-        left_layout.addWidget(self.avatar_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(left_widget)
+        # Background setup
+        self.background_label = QLabel(container)
+        self.background_label.setPixmap(QPixmap("bookshelf.png").scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio))
+        self.background_label.setGeometry(0, 0, self.width(), self.height())
+        self.background_label.lower()
 
-        self.shelf_widget = QWidget()
-        self.shelf_layout = QVBoxLayout(self.shelf_widget)
-        self.shelf_widget.setStyleSheet("background-color: #8B4513; border: 2px solid #4A2500;")
+        # book buttons setup
+        # bro
+        # the amount of time this took me 
+        # is so embarrassing
+        # i had to go back and just remake the images bc i couldnt figure it out
+        self.book_buttons = []
+        # pot_button = ImageButton("potshelf.png", 1, lambda idx=1: self.pot_clicked(), container)
+        # pot_button.setGeometry(0, 0, pot_button.width(), pot_button.height())
+        # pot_button.show()
         
-        self.add_spellbook_button = QPushButton("+")
-        self.add_spellbook_button.setFixedSize(50, 50)
-        self.add_spellbook_button.clicked.connect(self.add_new_spellbook)
-        self.shelf_layout.addWidget(self.add_spellbook_button, alignment=Qt.AlignmentFlag.AlignRight)
+        book_button = ImageButton("book1.png", 1, lambda idx=1: self.book_clicked(1), container)
+        book_button.setGeometry(573, 697, book_button.width(), book_button.height())
+        self.book_buttons.append(book_button)
 
-        main_layout.addWidget(self.shelf_widget)
-
-    # adds spellbooks to the shelf
-    def load_spellbooks(self):
+        book_button2 = ImageButton("book2.png", 2, lambda idx=2: self.book_clicked(2), container)
+        book_button2.setGeometry(667, 900-304, book_button2.width(), book_button2.height())
+        self.book_buttons.append(book_button2)
+        
+        book_button2 = ImageButton("book3.png", 2, lambda idx=2: self.book_clicked(3), container)
+        book_button2.setGeometry(600, 900-447, book_button2.width(), book_button2.height())
+        self.book_buttons.append(book_button2)
+        
+        book_button2 = ImageButton("book4.png", 2, lambda idx=2: self.book_clicked(4), container)
+        book_button2.setGeometry(645, 900-573, book_button2.width(), book_button2.height())
+        self.book_buttons.append(book_button2)
+        
+        book_button2 = ImageButton("book5.png", 2, lambda idx=2: self.book_clicked(5), container)
+        book_button2.setGeometry(736, 900-662, book_button2.width(), book_button2.height())
+        self.book_buttons.append(book_button2)
+        
+        book_button2 = ImageButton("book6.png", 2, lambda idx=2: self.book_clicked(6), container)
+        book_button2.setGeometry(701, 900-857, book_button2.width(), book_button2.height())
+        self.book_buttons.append(book_button2)
+        
+        self.load_existing_spellbooks()
+        
+            
+    
+    def pot_clicked(self):
+        self.open_potions_menu()
+        
+    def book_clicked(self, index):
+        try:
+            self.cursor.execute('SELECT title FROM spellbooks WHERE username = %s AND id = %s', 
+                            (self.username, index))
+            result = self.cursor.fetchone()
+            
+            if result:
+                self.open_spellbook(result['title'])
+            else:
+                self.add_new_spellbook(index)
+        except mysql.connector.Error as err:
+            print(f"Database error: {err}")
+                
+                
+    def load_existing_spellbooks(self):
         try:
             self.cursor.execute('''
-                SELECT * FROM spellbooks
+                SELECT title, book_index 
+                FROM spellbooks 
                 WHERE username = %s
-                ORDER BY title
             ''', (self.username,))
             spellbooks = self.cursor.fetchall()
             
-            if not spellbooks:
-                self.show_welcome_message()
-                return
+            for spellbook in spellbooks:
+                book_index = spellbook['book_index']
+                if 0 <= book_index-1 < len(self.book_buttons):
+                    button = self.book_buttons[book_index-1]
+                    button.setText(spellbook['title'])
+                    button.setStyleSheet("""
+                        QPushButton { 
+                                border: none; 
+                                background: transparent;
+                                color: white;
+                                font-size: 24px;
+                                text-align: left;
+                                padding: 20px 0 0 20px;
+                                margin: 0;
+                            }
+                            QPushButton:pressed {
+                                padding: 20px 0 0 20px;
+                            }
+                    """)
+
+                    button.clicked.disconnect()
+                    button.clicked.connect(lambda _, t=spellbook['title']: self.open_spellbook(t))
             
-            row_layout = QHBoxLayout()
-            for i, spellbook in enumerate(spellbooks):
-                if i > 0 and i % 3 == 0:
-                    self.shelf_layout.addLayout(row_layout)
-                    row_layout = QHBoxLayout()
-                
-                spellbook_button = QPushButton(spellbook['title'])
-                spellbook_button.setFixedSize(150, 200)
-                spellbook_button.setStyleSheet("background-image: url(spellbook.png); background-repeat: no-repeat; background-position: center; color: white; font-weight: bold;")
-                spellbook_button.clicked.connect(lambda _, title=spellbook['title']: self.open_spellbook(title))
-                row_layout.addWidget(spellbook_button)
-
-            if row_layout.count() > 0:
-                self.shelf_layout.addLayout(row_layout)
-
         except mysql.connector.Error as err:
-            QMessageBox.warning(self, "Error", f"Could not load spellbooks: {err}")
-
-    # creation of a new spellbook
-    def add_new_spellbook(self):
+            print(f"Error loading spellbooks: {err}")
+    def add_new_spellbook(self, book_index):
         title, ok = QInputDialog.getText(self, "New Spellbook", "Enter spellbook name:")
         if ok and title:
             try:
                 self.cursor.execute('''
-                    INSERT INTO spellbooks (username, title)
-                    VALUES (%s, %s)
+                    SELECT * FROM spellbooks 
+                    WHERE username = %s AND title = %s
                 ''', (self.username, title))
+                existing_book = self.cursor.fetchone()
+                
+                if existing_book:
+                    QMessageBox.warning(self, "Error", "A spellbook with this name already exists.")
+                    return
+                
+                self.cursor.execute('''
+                    INSERT INTO spellbooks (username, title, book_index)
+                    VALUES (%s, %s, %s)
+                ''', (self.username, title, book_index))
                 self.conn.commit()
+                
                 self.open_spellbook(title)
+            
             except mysql.connector.Error as err:
                 QMessageBox.warning(self, "Error", f"Could not create spellbook: {err}")
 
@@ -239,9 +292,7 @@ class SpellbookPage(QMainWindow):
                 left_side_layout = QVBoxLayout()
                 right_side_layout = QVBoxLayout()
 
-                
                 button_layout = QHBoxLayout()
-                # right_side_layout.addSpacing(30)
 
                 potions_button = QPushButton("Potions")
                 potions_button.setStyleSheet("""
@@ -280,7 +331,8 @@ class SpellbookPage(QMainWindow):
                     border-color: #341b10;
                     border-style: solid;
                 """)
-                
+                spellbooks_button.clicked.connect(self.init_ui)
+
                 spellbooks_button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed) 
                 spellbooks_button.setFixedWidth(200) 
                 button_layout.addWidget(spellbooks_button)
@@ -302,7 +354,7 @@ class SpellbookPage(QMainWindow):
         except mysql.connector.Error as err:
             QMessageBox.warning(self, "Error", f"Could not open spellbook: {err}")
         
-    # u wrote this so
+    # u wrote this so i feel like it would be weird if i commented it
     def open_potions_menu(self):
         self.setWindowTitle("Just Brew It")
         self.setFixedSize(1600, 900)
@@ -340,14 +392,13 @@ class SpellbookPage(QMainWindow):
         container.setLayout(main_layout)
 
     def return_to_spellbook_selection(self):
-        # clear the current layout
         for i in reversed(range(self.layout().count())): 
             widget = self.layout().itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
 
         self.init_ui()
-        self.load_spellbooks()
+        self.load_existing_spellbooks()
         self.setWindowTitle(f"Just Brew It - {self.username}'s Spellbooks")
     
     # :)
@@ -367,6 +418,25 @@ class SpellbookPage(QMainWindow):
         for val in vals:
             output += hex(val)[2:]
         return output
+
+
+class ImageButton(QPushButton):
+    def __init__(self, image_path, index, handler, parent=None):
+        super().__init__(parent)
+        self.pixmap = QPixmap(image_path)
+        self.setIcon(QIcon(self.pixmap))
+        self.setIconSize(self.pixmap.size())
+        self.setFixedSize(self.pixmap.size())
+        self.setStyleSheet("QPushButton { border: none; background: transparent; }")
+        self.index = index
+        self.handler = handler
+        self.clicked.connect(self.handler)
+
+    def hitButton(self, point):
+        # Allow clicks only on opaque (non-transparent) areas of the image
+        color = self.pixmap.toImage().pixelColor(point)
+        return color.alpha() > 0
+
 
 # opens gui
 if __name__ == "__main__":
